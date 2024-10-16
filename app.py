@@ -13,29 +13,39 @@ API_KEY = os.getenv('OPENWEATHER_API_KEY')
 def home():
     return render_template('index.html')
 
-@app.route('/weather', methods=['GET'])
-def get_weather():
-    city = request.args.get('city')
-    if not city:
-        return jsonify({'error': 'City is required'}), 400
+@app.route('/chat', methods=['POST'])
+def chat():
+    user_message = request.json.get('message').lower()
 
-    try:
-        response = requests.get(
-            f'http://api.openweathermap.org/data/2.5/weather?q={city}&appid={API_KEY}&units=metric'
-        )
-        weather = response.json()
+    if 'weather' in user_message:
+        # Extract city from user message
+        words = user_message.split()
+        if 'in' in words:
+            city_index = words.index('in') + 1
+            if city_index < len(words):
+                city = words[city_index]
+            else:
+                return jsonify({'reply': 'Please specify a city.'})
+        else:
+            return jsonify({'reply': 'Please specify a city using "in". For example, "weather in London".'})
 
-        if weather.get('cod') != 200:
-            return jsonify({'error': 'City not found'}), 404
+        # Fetch weather data
+        try:
+            response = requests.get(
+                f'http://api.openweathermap.org/data/2.5/weather?q={city}&appid={API_KEY}&units=metric'
+            )
+            weather = response.json()
 
-        return jsonify({
-            'city': weather['name'],
-            'temperature': weather['main']['temp'],
-            'description': weather['weather'][0]['description'],
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+            if weather.get('cod') != 200:
+                return jsonify({'reply': 'City not found. Please try another city.'})
+
+            reply = f"The current temperature in {weather['name']} is {weather['main']['temp']}°C with {weather['weather'][0]['description']}."
+            return jsonify({'reply': reply})
+        except Exception as e:
+            return jsonify({'reply': 'Sorry, I encountered an error fetching the weather.'})
+
+    else:
+        return jsonify({'reply': "I'm sorry, I can only provide weather information. Try asking about the weather in a specific city."})
 
 if __name__ == '__main__':
     app.run(debug=True)
-    
